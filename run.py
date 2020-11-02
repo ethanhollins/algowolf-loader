@@ -56,7 +56,7 @@ def generate_user_dict(user_id):
 		processes[user_id] = {}
 
 
-def run_script(user_id, account_code, script_id, input_variables):
+def run_script(user_id, strategy_id, account_code, auth_key, input_variables, script_id):
 	# Check if scripts exists
 	python_path = os.path.join(SCRIPTS_PATH, script_id, PYTHON_PATH)
 	script_path = os.path.join(SCRIPTS_PATH, script_id)
@@ -66,7 +66,10 @@ def run_script(user_id, account_code, script_id, input_variables):
 		# Run script
 		# TODO: Sandbox process
 		processes[user_id][account_code] = subprocess.Popen(
-			[], stdout=subprocess.DEVNULL
+			[
+				'pythonsdk', 'run', '-sid', strategy_id, '-bid', broker_id, '-acc', account_code, 
+				'-key', auth_key, '-vars', json.dumps(input_variables), '-c', json.dumps(config)
+			], stdout=subprocess.DEVNULL
 		)
 
 '''

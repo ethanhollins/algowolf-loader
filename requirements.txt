@@ -1,3 +1,4 @@
 boto3
 python-socketio[client]
 virtualenv
+shortuuid

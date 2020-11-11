@@ -4,6 +4,8 @@ import time
 import subprocess
 import socketio
 import boto3
+import logging
+import platform
 from db import Database
 
 
@@ -15,17 +17,47 @@ def load_config():
 	with open('config.json', 'r') as f:
 		return json.loads(f.read())
 
+
+def create_logger():
+	logger = logging.getLogger(__name__)
+	handler = logging.StreamHandler()
+	formatter = logging.Formatter(
+		fmt='%(asctime)s %(levelname)s: %(message)s', 
+		datefmt='%d/%m/%Y %H:%M:%S'
+	)
+	handler.setFormatter(formatter)
+	logger.addHandler(handler)
+	return logger
+
+
+# Retrieve config
 config = load_config()
+# Create socket object
 sio = socketio.Client()
+# Create Database Handler
 db = Database(config.get('DATABASE'))
+# Create Logger
+logger = create_logger()
+logger.setLevel(logging.DEBUG)
+# Create processes container
 processes = {}
 
-PATH = os.path.dirname(os.path.abspath(__file__))
-SCRIPTS_PATH = os.path.join(PATH, 'scripts')
-PACKAGES_PATH = os.path.join(PATH, 'packages')
-VENV_PATH = 'venv'
-PYTHON_PATH = 'venv\\scripts\\python.exe'
-PYTHON_SDK_PATH = 'venv\\scripts\\pythonsdk.exe'
+# Initialize Paths
+if platform.system() == 'Windows':
+	PATH = os.path.dirname(os.path.abspath(__file__))
+	SCRIPTS_PATH = os.path.join(PATH, 'scripts')
+	PACKAGES_PATH = os.path.join(PATH, 'packages')
+	VENV_PATH = 'venv'
+	PYTHON_PATH = 'venv\\scripts\\python.exe'
+	PYTHON_SDK_PATH = 'venv\\scripts\\pythonsdk.exe'
+
+else:
+	PATH = os.path.dirname(os.path.abspath(__file__))
+	SCRIPTS_PATH = os.path.join(PATH, 'scripts')
+	PACKAGES_PATH = os.path.join(PATH, 'packages')
+	VENV_PATH = 'venv'
+	PYTHON_PATH = 'venv/bin/python3'
+	PYTHON_SDK_PATH = 'venv/bin/pythonsdk'
 
 config['SCRIPTS_PATH'] = SCRIPTS_PATH
 
@@ -47,17 +79,29 @@ def save_script_properties(script_id, obj):
 		f.write(json.dumps(obj, indent=2))
 
 
+def compile_script(script_id, version, strategy_id, auth_key):
+	processes[user_id][account_code] = subprocess.Popen(
+		[
+			os.path.join(SCRIPTS_PATH, script_id, PYTHON_SDK_PATH), 'compile', '.'.join((script_id, version)), 
+			'-sid', strategy_id, '-key', auth_key, '-c', json.dumps(config)
+		]
+	)
+
+
 def initialize_script(script_id):
 	# TODO: Send progress messages
 
 	# Check script exists in storage
 
 	# Initialize virtual environment
+	logger.info(f'Initialize virtual envionment. {os.path.join(SCRIPTS_PATH, script_id, VENV_PATH)}')
 	subprocess.run(['python', '-m', 'venv', os.path.join(SCRIPTS_PATH, script_id, VENV_PATH)], stdout=subprocess.DEVNULL)
 
 	# Install Python SDK
 	python_path = os.path.join(SCRIPTS_PATH, script_id, PYTHON_PATH)
 	whl_files = [os.path.join(PACKAGES_PATH, i) for i in os.listdir(PACKAGES_PATH) if i.endswith('.whl')]
+	logger.info(f'Whl files {whl_files}')
+	logger.info('Install environment packages.')
 	subprocess.run([python_path, '-m', 'pip', 'install', '--upgrade', 'pip'], stdout=subprocess.DEVNULL)
 	subprocess.run([python_path, '-m', 'pip', 'install'] + whl_files, stdout=subprocess.DEVNULL)
 
@@ -69,7 +113,6 @@ def initialize_script(script_id):
 			'last_update': time.time()
 		}
 	)
-	return
 
 
 def check_script_updates(script_id):
@@ -112,6 +155,7 @@ def run_script(user_id, strategy_id, broker_id, accounts, auth_key, input_variab
 		if account_code not in processes[user_id] and os.path.exists(script_path):
 			# Run script
 			# TODO: Sandbox process
+			logger.info(f'RUN {user_id}, {account_code}')
 			processes[user_id][account_code] = subprocess.Popen(
 				[
 					os.path.join(SCRIPTS_PATH, script_id, PYTHON_SDK_PATH), 'run', '.'.join((script_id, version)), 
@@ -126,7 +170,6 @@ Socket Endpoints
 
 @sio.on('start', namespace='/admin')
 def start_script(data):
-	print('START')
 	script_id = data.get('script_id')
 
 	if script_id is not None:
@@ -146,7 +189,6 @@ def start_script(data):
 
 @sio.on('stop', namespace='/admin')
 def stop_script(data):
-	print('STOP')
 	# Send stop message
 	user_id = data.get('user_id')
 	broker_id = data.get('broker_id')
@@ -155,7 +197,9 @@ def stop_script(data):
 	if user_id in processes:
 		for account_id in accounts:
 			account_code = get_account_code(broker_id, account_id)
-			if account_code in user_id:
+
+			if account_code in processes[user_id]:
+				logger.info(f'TERMINATING {user_id}, {account_code}')
 				processes[user_id][account_code].terminate()
 
 				try:
@@ -189,10 +233,14 @@ if __name__ == '__main__':
 		except socketio.exceptions.ConnectionError:
 			time.sleep(1)
 
-	print("[Loader] Started.")
+	logger.info("[Loader] Started.")
 	try:
 		while True: time.sleep(3)
 	except KeyboardInterrupt:
-		print('[Loader] Stopping.')
+		logger.info('[Loader] Stopping.')
 		sio.disconnect()
+
+		for i in processes:
+			for j in processes[i]:
+				processes[i][j].kill()
 

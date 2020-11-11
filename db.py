@@ -114,7 +114,7 @@ class Database(object):
 
 		if last_update is not None:
 			script_path = os.path.join(path, script_id)
-			if not isUpdated(script_id, last_update):
+			if not self.isUpdated(script_id, last_update):
 				# Delete all files
 				for i in os.listdir(script_path):
 					if os.path.isdir(os.path.join(script_path, i)):

@@ -2,11 +2,11 @@ import sys
 import os
 import json
 import subprocess
-from db import Database
-from run import initialize_script, check_script_updates
+from app.db import Database
+from app.views import initialize_script, check_script_updates
 
 def load_config():
-	with open('config.json', 'r') as f:
+	with open('instance/config.json', 'r') as f:
 		return json.loads(f.read())
 
 config = load_config()
@@ -18,6 +18,14 @@ PYTHON_SDK_PATH = 'venv\\scripts\\pythonsdk.exe'
 
 config['SCRIPTS_PATH'] = SCRIPTS_PATH
 
+def getScriptConfig():
+	return {
+		'API_URL': config.get('API_URL'),
+		'STREAM_URL': config.get('STREAM_URL'),
+		'SCRIPTS_PATH': SCRIPTS_PATH
+	}
+
+
 def compile_script(script_id, version):
 	strategy_id = 'J330N2'
 	account_code = 'CH566W.101-011-13163978-001'
@@ -28,7 +36,7 @@ def compile_script(script_id, version):
 			os.path.join(SCRIPTS_PATH, script_id, PYTHON_SDK_PATH), 
 			'compile', '.'.join((script_id, version)), '-sid', strategy_id,
 			'-acc', account_code, '-key', auth_key,
-			'-c', json.dumps(config)
+			'-c', json.dumps(getScriptConfig())
 		]
 	)
 

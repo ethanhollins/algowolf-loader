@@ -3,3 +3,4 @@ venv/
 scripts/
 config.json
 *.pyc
+instance/

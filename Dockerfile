@@ -12,4 +12,4 @@ RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
 # run the command to start uWSGI
-CMD ["python", "-u", "./run.py"]
+CMD ["uwsgi", "app.ini"]

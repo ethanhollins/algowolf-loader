@@ -139,6 +139,24 @@ def run_script(user_id, strategy_id, broker_id, accounts, auth_key, input_variab
 			)
 
 
+def backtest_script(user_id, strategy_id, auth_key, input_variables, script_id, version):
+	# Check if scripts exists
+	python_path = os.path.join(SCRIPTS_PATH, script_id, PYTHON_PATH)
+	script_path = os.path.join(SCRIPTS_PATH, script_id)
+
+	# Run Backtest
+	# TODO: Sandbox process
+	logger.info(f'BACKTEST {user_id}, {script_id}')
+	subprocess.run(
+		[
+			os.path.join(SCRIPTS_PATH, script_id, PYTHON_SDK_PATH), 'backtest', '.'.join((script_id, version)), 
+			'-sid', strategy_id, '-key', auth_key, 
+			'-vars', json.dumps(input_variables), '-c', json.dumps(getScriptConfig())
+		]
+	)
+
+
+
 def getJson():
 	try:
 		body = request.get_json(force=True)
@@ -216,6 +234,31 @@ def stop_script():
 				del processes[user_id][account_code]
 
 	res = { 'message': 'stopped' }
+	return Response(
+		json.dumps(res, indent=2),
+		status=200, content_type='application/json'
+	)
+
+
+@app.route('/backtest', methods=('POST',))
+def backtest_script():
+	data = getJson()
+
+	script_id = data.get('script_id')
+
+	if script_id is not None:
+		# Check if script exists
+		if os.path.exists(os.path.join(SCRIPTS_PATH, script_id)):
+			# Check for script updates
+			check_script_updates(script_id)
+		else:
+			# Initialize script folder
+			initialize_script(script_id)
+
+		# Run script
+		run_script(**data)
+
+	res = { 'started': script_id }
 	return Response(
 		json.dumps(res, indent=2),
 		status=200, content_type='application/json'

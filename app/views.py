@@ -139,7 +139,7 @@ def run_script(user_id, strategy_id, broker_id, accounts, auth_key, input_variab
 			)
 
 
-def backtest_script(user_id, strategy_id, auth_key, input_variables, script_id, version):
+def backtest_script(user_id, strategy_id, auth_key, input_variables, script_id, version, broker, start, end):
 	# Check if scripts exists
 	python_path = os.path.join(SCRIPTS_PATH, script_id, PYTHON_PATH)
 	script_path = os.path.join(SCRIPTS_PATH, script_id)
@@ -147,11 +147,11 @@ def backtest_script(user_id, strategy_id, auth_key, input_variables, script_id, 
 	# Run Backtest
 	# TODO: Sandbox process
 	logger.info(f'BACKTEST {user_id}, {script_id}')
-	subprocess.run(
+	subprocess.Popen(
 		[
 			os.path.join(SCRIPTS_PATH, script_id, PYTHON_SDK_PATH), 'backtest', '.'.join((script_id, version)), 
-			'-sid', strategy_id, '-key', auth_key, 
-			'-vars', json.dumps(input_variables), '-c', json.dumps(getScriptConfig())
+			'-sid', strategy_id, '-key', auth_key, '-vars', json.dumps(input_variables), 
+			'-b', broker, '-f', str(start), '-t', str(end), '-c', json.dumps(getScriptConfig())
 		]
 	)
 
@@ -185,7 +185,7 @@ def index():
 	)
 
 @app.route('/start', methods=('POST',))
-def start_script():
+def start_script_ept():
 	data = getJson()
 
 	script_id = data.get('script_id')
@@ -210,7 +210,7 @@ def start_script():
 
 
 @app.route('/stop', methods=('POST',))
-def stop_script():
+def stop_script_ept():
 	data = getJson()
 
 	# Send stop message
@@ -241,8 +241,9 @@ def stop_script():
 
 
 @app.route('/backtest', methods=('POST',))
-def backtest_script():
+def backtest_script_ept():
 	data = getJson()
+	print(data)
 
 	script_id = data.get('script_id')
 
@@ -256,9 +257,9 @@ def backtest_script():
 			initialize_script(script_id)
 
 		# Run script
-		run_script(**data)
+		backtest_script(**data)
 
-	res = { 'started': script_id }
+	res = { 'message': 'started' }
 	return Response(
 		json.dumps(res, indent=2),
 		status=200, content_type='application/json'

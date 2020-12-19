@@ -93,8 +93,8 @@ def check_script_updates(script_id):
 	# Install Python SDK
 	python_path = os.path.join(SCRIPTS_PATH, script_id, PYTHON_PATH)
 	whl_files = [os.path.join(PACKAGES_PATH, i) for i in os.listdir(PACKAGES_PATH) if i.endswith('.whl')]
-	subprocess.run([python_path, '-m', 'pip', 'install', '--upgrade', 'pip'], stdout=subprocess.DEVNULL)
-	subprocess.run([python_path, '-m', 'pip', 'install', '--upgrade', '--force-reinstall'] + whl_files, stdout=subprocess.DEVNULL)
+	subprocess.run([python_path, '-m', 'pip', 'install', '--upgrade', 'pip==20.3.1'], stdout=subprocess.DEVNULL)
+	subprocess.run([python_path, '-m', 'pip', 'install', '--upgrade'] + whl_files, stdout=subprocess.DEVNULL)
 
 	properties = load_script_properties(script_id)
 
@@ -139,7 +139,7 @@ def run_script(user_id, strategy_id, broker_id, accounts, auth_key, input_variab
 			)
 
 
-def backtest_script(user_id, strategy_id, auth_key, input_variables, script_id, version, broker, start, end):
+def backtest_script(user_id, strategy_id, auth_key, input_variables, script_id, version, broker, start, end, spread):
 	# Check if scripts exists
 	python_path = os.path.join(SCRIPTS_PATH, script_id, PYTHON_PATH)
 	script_path = os.path.join(SCRIPTS_PATH, script_id)
@@ -147,14 +147,17 @@ def backtest_script(user_id, strategy_id, auth_key, input_variables, script_id, 
 	# Run Backtest
 	# TODO: Sandbox process
 	logger.info(f'BACKTEST {user_id}, {script_id}')
-	subprocess.Popen(
-		[
-			os.path.join(SCRIPTS_PATH, script_id, PYTHON_SDK_PATH), 'backtest', '.'.join((script_id, version)), 
-			'-sid', strategy_id, '-key', auth_key, '-vars', json.dumps(input_variables), 
-			'-b', broker, '-f', str(start), '-t', str(end), '-c', json.dumps(getScriptConfig())
-		]
-	)
 
+	cmd = [
+		os.path.join(SCRIPTS_PATH, script_id, PYTHON_SDK_PATH), 'backtest', '.'.join((script_id, version)), 
+		'-sid', strategy_id, '-key', auth_key, '-vars', json.dumps(input_variables), '-b', broker, 
+		'-f', str(start), '-t', str(end), '-c', json.dumps(getScriptConfig())
+	]
+
+	if spread is not None:
+		cmd += ['-s', str(spread)]
+
+	subprocess.Popen(cmd)
 
 
 def getJson():

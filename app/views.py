@@ -94,7 +94,7 @@ def check_script_updates(script_id):
 	python_path = os.path.join(SCRIPTS_PATH, script_id, PYTHON_PATH)
 	whl_files = [os.path.join(PACKAGES_PATH, i) for i in os.listdir(PACKAGES_PATH) if i.endswith('.whl')]
 	subprocess.run([python_path, '-m', 'pip', 'install', '--upgrade', 'pip==20.3.1'], stdout=subprocess.DEVNULL)
-	subprocess.run([python_path, '-m', 'pip', 'install', '--upgrade'] + whl_files, stdout=subprocess.DEVNULL)
+	subprocess.run([python_path, '-m', 'pip', 'install', '--upgrade', '--force-reinstall'] + whl_files, stdout=subprocess.DEVNULL)
 
 	properties = load_script_properties(script_id)
 

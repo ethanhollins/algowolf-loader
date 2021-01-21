@@ -1,5 +1,5 @@
-flask
-boto3
+Flask==1.1.2
+boto3==1.16.31
 virtualenv
-shortuuid
-uwsgi
+shortuuid==1.0.1
+uWSGI==2.0.19.1

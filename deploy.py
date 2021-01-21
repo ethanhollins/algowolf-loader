@@ -6,7 +6,7 @@ from app.db import Database
 from app.views import initialize_script, check_script_updates
 
 def load_config():
-	with open('instance/config.json', 'r') as f:
+	with open('./instance/config.json', 'r') as f:
 		return json.loads(f.read())
 
 config = load_config()

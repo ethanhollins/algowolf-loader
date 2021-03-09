@@ -2,9 +2,10 @@ import os
 import json
 import time
 import subprocess
+import shortuuid
 import platform
 from app import (
-	app, db, logger, processes, PATH
+	app, db, logger, processes, PATH, event_queue
 )
 from flask import Response, request
 
@@ -118,6 +119,24 @@ def get_account_code(broker_id, account_id):
 	return '.'.join((broker_id, account_id))
 
 
+def addEventToQueue(group_id):
+	if group_id not in event_queue:
+		event_queue[group_id] = []
+
+	event_id = shortuuid.uuid()
+	event_queue[group_id].append(event_id)
+	return event_id
+
+
+def popEventQueue(group_id):
+	del event_queue[group_id][0]
+
+
+def waitForEvent(group_id, event_id):
+	while event_queue[group_id][0] != event_id:
+		time.sleep(1)
+
+
 def run_script(user_id, strategy_id, broker_id, accounts, auth_key, input_variables, script_id, version):
 	# Check if scripts exists
 	python_path = os.path.join(SCRIPTS_PATH, script_id, PYTHON_PATH)
@@ -126,7 +145,13 @@ def run_script(user_id, strategy_id, broker_id, accounts, auth_key, input_variab
 	generate_user_dict(user_id)
 	for account_id in accounts:
 		account_code = get_account_code(broker_id, account_id)
+
+		group_id = get_account_code(user_id, account_code)
+		event_id = addEventToQueue(group_id)
+		waitForEvent(group_id, event_id)
+
 		if account_code not in processes[user_id] and os.path.exists(script_path):
+			print(f'STARTING {user_id}, {account_code}')
 			# Run script
 			# TODO: Sandbox process
 			logger.info(f'RUN {user_id}, {account_code}')
@@ -137,6 +162,10 @@ def run_script(user_id, strategy_id, broker_id, accounts, auth_key, input_variab
 					'-vars', json.dumps(input_variables), '-c', json.dumps(getScriptConfig())
 				]
 			)
+		else:
+			print(f'ALREADY RUNNING {user_id}, {account_code}')
+
+		popEventQueue(group_id)
 
 
 def backtest_script(user_id, strategy_id, auth_key, input_variables, script_id, version, broker, start, end, spread):
@@ -175,6 +204,7 @@ def getJson():
 
 	return body
 
+
 '''
 Endpoints
 '''
@@ -193,6 +223,9 @@ def start_script_ept():
 
 	script_id = data.get('script_id')
 
+	event_id = addEventToQueue(script_id)
+	waitForEvent(script_id, event_id)
+
 	if script_id is not None:
 		# Check if script exists
 		if os.path.exists(os.path.join(SCRIPTS_PATH, script_id)):
@@ -202,8 +235,12 @@ def start_script_ept():
 			# Initialize script folder
 			initialize_script(script_id)
 
+		popEventQueue(script_id)
+
 		# Run script
 		run_script(**data)
+	else:
+		popEventQueue(script_id)
 
 	res = { 'started': script_id }
 	return Response(
@@ -225,6 +262,10 @@ def stop_script_ept():
 		for account_id in accounts:
 			account_code = get_account_code(broker_id, account_id)
 
+			group_id = get_account_code(user_id, account_code)
+			event_id = addEventToQueue(group_id)
+			waitForEvent(group_id, event_id)
+
 			if account_code in processes[user_id]:
 				logger.info(f'TERMINATING {user_id}, {account_code}')
 				processes[user_id][account_code].terminate()
@@ -235,6 +276,8 @@ def stop_script_ept():
 					processes[user_id][account_code].kill()
 
 				del processes[user_id][account_code]
+
+			popEventQueue(group_id)
 
 	res = { 'message': 'stopped' }
 	return Response(

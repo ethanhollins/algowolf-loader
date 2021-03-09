@@ -52,6 +52,7 @@ logger = create_logger()
 logger.setLevel(logging.DEBUG)
 # Create processes container
 processes = {}
+event_queue = {}
 # Create Path constant
 PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

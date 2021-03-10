@@ -150,7 +150,7 @@ def run_script(user_id, strategy_id, broker_id, accounts, auth_key, input_variab
 		event_id = addEventToQueue(group_id)
 		waitForEvent(group_id, event_id)
 
-		if account_code not in processes[user_id] and os.path.exists(script_path):
+		if not check_running(user_id, broker_id, account_id) and os.path.exists(script_path):
 			print(f'STARTING {user_id}, {account_code}')
 			# Run script
 			# TODO: Sandbox process
@@ -203,6 +203,17 @@ def getJson():
 		))
 
 	return body
+
+
+def check_running(user_id, broker_id, account_id):
+	running = False
+	if user_id in processes:
+		account_code = get_account_code(broker_id, account_id)
+		if account_code in processes[user_id]:
+			running = processes[user_id][account_code].poll() is None
+			if not running:
+				del processes[user_id][account_code]
+	return running
 
 
 '''
@@ -321,10 +332,7 @@ def is_script_running():
 	broker_id = data.get('broker_id')
 	account_id = data.get('account_id')
 
-	running = False
-	if user_id in processes:
-		account_code = get_account_code(broker_id, account_id)
-		running = account_code in processes[user_id]
+	running = check_running(user_id, broker_id, account_id)			
 
 	res = { 'running': running }
 	return Response(

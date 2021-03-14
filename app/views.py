@@ -55,12 +55,18 @@ def save_script_properties(script_id, obj):
 
 
 def compile_script(script_id, version, strategy_id, auth_key):
-	processes[user_id][account_code] = subprocess.Popen(
-		[
-			os.path.join(SCRIPTS_PATH, script_id, PYTHON_SDK_PATH), 'compile', '.'.join((script_id, version)), 
-			'-sid', strategy_id, '-key', auth_key, '-c', json.dumps(getScriptConfig())
-		]
-	)
+	processes[user_id][account_code] = {
+		'script_id': script_id,
+		'input_variables': {},
+		'process': subprocess.Popen(
+			[
+				os.path.join(SCRIPTS_PATH, script_id, PYTHON_SDK_PATH), 'compile', '.'.join((script_id, version)), 
+				'-sid', strategy_id, '-key', auth_key, '-c', json.dumps(getScriptConfig())
+			]
+		)
+	}
+
+	
 
 
 def initialize_script(script_id):
@@ -95,7 +101,7 @@ def check_script_updates(script_id):
 	python_path = os.path.join(SCRIPTS_PATH, script_id, PYTHON_PATH)
 	whl_files = [os.path.join(PACKAGES_PATH, i) for i in os.listdir(PACKAGES_PATH) if i.endswith('.whl')]
 	subprocess.run([python_path, '-m', 'pip', 'install', '--upgrade', 'pip==20.3.1'], stdout=subprocess.DEVNULL)
-	subprocess.run([python_path, '-m', 'pip', 'install', '--upgrade', '--force-reinstall'] + whl_files, stdout=subprocess.DEVNULL)
+	subprocess.run([python_path, '-m', 'pip', 'install', '--upgrade'] + whl_files, stdout=subprocess.DEVNULL)
 
 	properties = load_script_properties(script_id)
 
@@ -155,13 +161,19 @@ def run_script(user_id, strategy_id, broker_id, accounts, auth_key, input_variab
 			# Run script
 			# TODO: Sandbox process
 			logger.info(f'RUN {user_id}, {account_code}')
-			processes[user_id][account_code] = subprocess.Popen(
-				[
-					os.path.join(SCRIPTS_PATH, script_id, PYTHON_SDK_PATH), 'run', '.'.join((script_id, version)), 
-					'-sid', strategy_id, '-acc', account_code,  '-key', auth_key, 
-					'-vars', json.dumps(input_variables), '-c', json.dumps(getScriptConfig())
-				]
-			)
+			processes[user_id][account_code] = {
+				'script_id': script_id,
+				'input_variables': input_variables,
+				'process': subprocess.Popen(
+					[
+						os.path.join(SCRIPTS_PATH, script_id, PYTHON_SDK_PATH), 'run', '.'.join((script_id, version)), 
+						'-sid', strategy_id, '-acc', account_code,  '-key', auth_key, 
+						'-vars', json.dumps(input_variables), '-c', json.dumps(getScriptConfig())
+					]
+				)
+			}
+
+			
 		else:
 			print(f'ALREADY RUNNING {user_id}, {account_code}')
 
@@ -210,10 +222,13 @@ def check_running(user_id, broker_id, account_id):
 	if user_id in processes:
 		account_code = get_account_code(broker_id, account_id)
 		if account_code in processes[user_id]:
-			running = processes[user_id][account_code].poll() is None
+			running = processes[user_id][account_code]['process'].poll() is None
 			if not running:
 				del processes[user_id][account_code]
-	return running
+	if running:
+		return processes[user_id][account_code]
+	else:
+		return None
 
 
 '''
@@ -279,12 +294,12 @@ def stop_script_ept():
 
 			if account_code in processes[user_id]:
 				logger.info(f'TERMINATING {user_id}, {account_code}')
-				processes[user_id][account_code].terminate()
+				processes[user_id][account_code]['process'].terminate()
 
 				try:
-					processes[user_id][account_code].wait(timeout=10)
+					processes[user_id][account_code]['process'].wait(timeout=10)
 				except subprocess.TimeoutExpired as e:
-					processes[user_id][account_code].kill()
+					processes[user_id][account_code]['process'].kill()
 
 				del processes[user_id][account_code]
 
@@ -334,7 +349,16 @@ def is_script_running():
 
 	running = check_running(user_id, broker_id, account_id)			
 
-	res = { 'running': running }
+	if running is not None:
+		res = { 
+			'running': running['script_id'],
+			'input_variables': running['input_variables']
+		}
+	else:
+		res = { 
+			'running': None,
+			'input_variables': {}
+		}
 	return Response(
 		json.dumps(res, indent=2),
 		status=200, content_type='application/json'

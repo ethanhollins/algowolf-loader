@@ -81,10 +81,17 @@ def initialize_script(script_id):
 	# Install Python SDK
 	python_path = os.path.join(SCRIPTS_PATH, script_id, PYTHON_PATH)
 	whl_files = [os.path.join(PACKAGES_PATH, i) for i in os.listdir(PACKAGES_PATH) if i.endswith('.whl')]
+	tar_files = [os.path.join(PACKAGES_PATH, i) for i in os.listdir(PACKAGES_PATH) if i.endswith('.tar.gz')]
 	logger.info(f'Whl files {whl_files}')
+	logger.info(f'Tar files {tar_files}')
 	logger.info('Install environment packages.')
-	subprocess.run([python_path, '-m', 'pip', 'install', '--upgrade', 'pip'], stdout=subprocess.DEVNULL)
-	subprocess.run([python_path, '-m', 'pip', 'install'] + whl_files, stdout=subprocess.DEVNULL)
+
+	subprocess.run([python_path, '-m', 'pip', 'install', '--upgrade', 'pip==20.3.1', 'Cython==0.29.22'], stdout=subprocess.DEVNULL)
+
+	if platform.system() == 'Windows':
+		subprocess.run([python_path, '-m', 'pip', 'install'] + whl_files, stdout=subprocess.DEVNULL)
+	elif platform.system() == 'Linux':
+		subprocess.run([python_path, '-m', 'pip', 'install'] + tar_files, stdout=subprocess.DEVNULL)
 
 	# Download script files
 	db.downloadScript(script_id, SCRIPTS_PATH)
@@ -100,8 +107,15 @@ def check_script_updates(script_id):
 	# Install Python SDK
 	python_path = os.path.join(SCRIPTS_PATH, script_id, PYTHON_PATH)
 	whl_files = [os.path.join(PACKAGES_PATH, i) for i in os.listdir(PACKAGES_PATH) if i.endswith('.whl')]
-	subprocess.run([python_path, '-m', 'pip', 'install', '--upgrade', 'pip==20.3.1'], stdout=subprocess.DEVNULL)
-	subprocess.run([python_path, '-m', 'pip', 'install', '--upgrade'] + whl_files, stdout=subprocess.DEVNULL)
+	tar_files = [os.path.join(PACKAGES_PATH, i) for i in os.listdir(PACKAGES_PATH) if i.endswith('.tar.gz')]
+
+	print(f'LIST: {os.listdir(PACKAGES_PATH)}', flush=True)
+	print(f'TAR: {tar_files}', flush=True)
+	subprocess.run([python_path, '-m', 'pip', 'install', '--upgrade', 'pip==20.3.1', 'Cython==0.29.22'], stdout=subprocess.DEVNULL)
+	if platform.system() == 'Windows':
+		subprocess.run([python_path, '-m', 'pip', 'install', '--upgrade'] + whl_files, stdout=subprocess.DEVNULL)
+	elif platform.system() == 'Linux':
+		subprocess.run([python_path, '-m', 'pip', 'install', '--upgrade'] + tar_files, stdout=subprocess.DEVNULL)
 
 	properties = load_script_properties(script_id)
 

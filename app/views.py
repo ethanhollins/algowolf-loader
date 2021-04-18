@@ -16,6 +16,7 @@ Initialization
 # Initialize Paths
 SCRIPTS_PATH = os.path.join(PATH, 'scripts')
 PACKAGES_PATH = os.path.join(PATH, 'packages')
+BUILD_CYTHON_PATH = os.path.join(PATH, 'build_cython.py')
 VENV_PATH = 'venv'
 
 # WINDOWS
@@ -69,7 +70,7 @@ def compile_script(script_id, version, strategy_id, auth_key):
 	
 
 
-def initialize_script(script_id):
+def initialize_script(script_id, version):
 	# TODO: Send progress messages
 
 	# Check script exists in storage
@@ -102,8 +103,12 @@ def initialize_script(script_id):
 		}
 	)
 
+	print(f'CYTHONIZE: {os.path.join(SCRIPTS_PATH, script_id, version)}')
+	subprocess.run([python_path, BUILD_CYTHON_PATH, 'build_ext', '--inplace', os.path.join(SCRIPTS_PATH, script_id, version)])
 
-def check_script_updates(script_id):
+
+
+def check_script_updates(script_id, version):
 	# Install Python SDK
 	python_path = os.path.join(SCRIPTS_PATH, script_id, PYTHON_PATH)
 	whl_files = [os.path.join(PACKAGES_PATH, i) for i in os.listdir(PACKAGES_PATH) if i.endswith('.whl')]
@@ -128,6 +133,9 @@ def check_script_updates(script_id):
 			'last_update': time.time()
 		}
 	)
+
+	print(f'CYTHONIZE: {os.path.join(SCRIPTS_PATH, script_id, version)}')
+	subprocess.run([python_path, BUILD_CYTHON_PATH, 'build_ext', '--inplace', os.path.join(SCRIPTS_PATH, script_id, version)])
 
 
 def generate_user_dict(user_id):
@@ -262,6 +270,7 @@ def start_script_ept():
 	data = getJson()
 
 	script_id = data.get('script_id')
+	version = data.get('version')
 
 	event_id = addEventToQueue(script_id)
 	waitForEvent(script_id, event_id)
@@ -270,10 +279,10 @@ def start_script_ept():
 		# Check if script exists
 		if os.path.exists(os.path.join(SCRIPTS_PATH, script_id)):
 			# Check for script updates
-			check_script_updates(script_id)
+			check_script_updates(script_id, version)
 		else:
 			# Initialize script folder
-			initialize_script(script_id)
+			initialize_script(script_id, version)
 
 		popEventQueue(script_id)
 
@@ -332,15 +341,16 @@ def backtest_script_ept():
 	print(data)
 
 	script_id = data.get('script_id')
+	version = data.get('version')
 
 	if script_id is not None:
 		# Check if script exists
 		if os.path.exists(os.path.join(SCRIPTS_PATH, script_id)):
 			# Check for script updates
-			check_script_updates(script_id)
+			check_script_updates(script_id, version)
 		else:
 			# Initialize script folder
-			initialize_script(script_id)
+			initialize_script(script_id, version)
 
 		# Run script
 		backtest_script(**data)

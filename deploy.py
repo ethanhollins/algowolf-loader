@@ -56,10 +56,10 @@ def deploy_script():
 		# Check if script exists
 		if os.path.exists(os.path.join(SCRIPTS_PATH, script_id)):
 			# Check for script updates
-			check_script_updates(script_id)
+			check_script_updates(script_id, version)
 		else:
 			# Initialize script folder
-			initialize_script(script_id)
+			initialize_script(script_id, version)
 
 		print('Compiling...')
 		compile_script(script_id, version)

@@ -133,13 +133,12 @@ class Database(object):
 
 
 	def recursiveUpload(self, bucket, key, script_path, path):
-		IGNORE = ['__pycache__', 'venv', '.pyc']
+		IGNORE = ['__pycache__', 'venv', 'build', '.pyd', '.c', '.pyc']
 		current_path = os.path.join(script_path, path)
 		for i in os.listdir(current_path):
 			# Check ignore
-			for x in IGNORE:
-				if x in i:
-					continue
+			if any(x in i for x in IGNORE):
+				continue
 
 			if os.path.isdir(os.path.join(current_path, i)):
 				self.recursiveUpload(bucket, key, script_path, os.path.join(path, i))

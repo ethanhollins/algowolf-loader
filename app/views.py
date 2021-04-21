@@ -202,7 +202,7 @@ def run_script(user_id, strategy_id, broker_id, accounts, auth_key, input_variab
 		popEventQueue(group_id)
 
 
-def backtest_script(user_id, strategy_id, auth_key, input_variables, script_id, version, broker, start, end, spread):
+def backtest_script(user_id, strategy_id, auth_key, input_variables, script_id, version, broker, start, end, spread, process_mode):
 	# Check if scripts exists
 	python_path = os.path.join(SCRIPTS_PATH, script_id, PYTHON_PATH)
 	script_path = os.path.join(SCRIPTS_PATH, script_id)
@@ -214,7 +214,7 @@ def backtest_script(user_id, strategy_id, auth_key, input_variables, script_id, 
 	cmd = [
 		os.path.join(SCRIPTS_PATH, script_id, PYTHON_SDK_PATH), 'backtest', '.'.join((script_id, version)), 
 		'-sid', strategy_id, '-key', auth_key, '-vars', json.dumps(input_variables), '-b', broker, 
-		'-f', str(start), '-t', str(end), '-c', json.dumps(getScriptConfig())
+		'-f', str(start), '-t', str(end), '-c', json.dumps(getScriptConfig()), '-pm', process_mode
 	]
 
 	if spread is not None:

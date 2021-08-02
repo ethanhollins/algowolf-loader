@@ -51,7 +51,7 @@ def deploy_script():
 			return
 
 		print('Uploading...')
-		db.uploadScript(script_id, path)
+		db.uploadScript(script_id, path, version)
 
 		# Check if script exists
 		if os.path.exists(os.path.join(SCRIPTS_PATH, script_id)):

@@ -132,7 +132,7 @@ class Database(object):
 			bucket.download_file(obj.key, os.path.join(path, obj.key))
 
 
-	def recursiveUpload(self, bucket, key, script_path, path):
+	def recursiveUpload(self, bucket, key, version, script_path, path):
 		IGNORE = ['__pycache__', 'venv', 'build', '.pyd', '.c', '.pyc']
 		current_path = os.path.join(script_path, path)
 		for i in os.listdir(current_path):
@@ -141,7 +141,8 @@ class Database(object):
 				continue
 
 			if os.path.isdir(os.path.join(current_path, i)):
-				self.recursiveUpload(bucket, key, script_path, os.path.join(path, i))
+				if i == version:
+					self.recursiveUpload(bucket, key, version, script_path, os.path.join(path, i))
 			elif os.path.isfile(os.path.join(current_path, i)):
 				if path:
 					upload_key = '/'.join((key, path.replace('\\', '/'), i))
@@ -152,13 +153,19 @@ class Database(object):
 					bucket.upload_fileobj(data, upload_key)
 
 
-	def uploadScript(self, script_id, path):
+	def uploadScript(self, script_id, path, version):
 		bucket = self._s3_res.Bucket(self.scriptBucketName)
 
+		replace_content = ['__init__.py', 'input_variables.json.gz']
+
 		# Delete old files
-		bucket.objects.filter(Prefix=script_id+'/').delete()
+		for i in replace_content:
+			bucket.objects.filter(Prefix=script_id+'/' + i).delete()
+		# Delete old version files
+		bucket.objects.filter(Prefix=script_id+'/' + version + '/').delete()
+
 		# Upload new files
-		self.recursiveUpload(bucket, script_id, os.path.join(path, script_id), '')
+		self.recursiveUpload(bucket, script_id, version, os.path.join(path, script_id), '')
 		# Update script metadata
 		update = {
 			'last_update': time.time()

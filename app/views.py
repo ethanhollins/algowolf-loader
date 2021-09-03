@@ -178,7 +178,7 @@ def run_script(user_id, strategy_id, broker_id, accounts, auth_key, input_variab
 		event_id = addEventToQueue(group_id)
 		waitForEvent(group_id, event_id)
 
-		if not check_running(user_id, broker_id, account_id) and os.path.exists(script_path):
+		if (not check_running(user_id, broker_id, account_id) and os.path.exists(script_path)) or user_id == "test":
 			print(f'STARTING {user_id}, {account_code}')
 			# Run script
 			# TODO: Sandbox process
